@@ -53,6 +53,45 @@ def minimax(depth, is_maximizing):
         return min_eval
 
 
+def minimax_with_alpha_beta(depth, is_maximizing, alpha, beta):
+    global PLAYER_O, PLAYER_X, board
+
+    winner = check_winner(board)
+    if winner == PLAYER_X:
+        return 10 - depth
+    elif winner == PLAYER_O:
+        return depth - 10
+    elif is_full(board):
+        return 0
+
+    if is_maximizing:
+        max_eval = -math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_X
+                    eval = minimax_with_alpha_beta(depth + 1, False, alpha, beta)
+                    board[i][j] = " "
+                    max_eval = max(max_eval, eval)
+                    if eval >= beta:
+                        return beta
+                    alpha = max(alpha, eval)
+        return max_eval
+    else:
+        min_eval = math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_O
+                    eval = minimax_with_alpha_beta(depth + 1, True, alpha, beta)
+                    board[i][j] = " "
+                    min_eval = min(min_eval, eval)
+                    if eval <= alpha:
+                        return alpha
+                    beta = min(beta, eval)
+        return min_eval
+
+
 def ai_move():
     global board, buttons, PLAYER_X
 
