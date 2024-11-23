@@ -14,6 +14,13 @@ def print_board(current_board):
                 f"{current_board[i][0]} | {current_board[i][1]} | {current_board[i][2]}"
             )
             print("--+---+---")
+
+        winner = check_winner(current_board)
+        if winner:
+            print("Winner is: " + winner)
+        elif is_full(board):
+            print("Tie")
+
         print()
 
 
