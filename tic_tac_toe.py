@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 import math
 import copy
+import time
 
 
 def print_board(current_board):
@@ -25,10 +26,11 @@ def print_board(current_board):
 
 
 def minimax(depth, is_maximizing):
-    global PLAYER_O, PLAYER_X, board
+    global PLAYER_O, PLAYER_X, board, called
+    called += 1
 
-    current_board = copy.deepcopy(board)
-    printer.submit(lambda: print_board(current_board))
+    # current_board = copy.deepcopy(board)
+    # printer.submit(lambda: print_board(current_board))
 
     winner = check_winner(board)
     if winner == PLAYER_X:
@@ -44,7 +46,7 @@ def minimax(depth, is_maximizing):
             for j in range(3):
                 if board[i][j] == " ":
                     board[i][j] = PLAYER_X
-                    eval = minimax(depth + 1, False)
+                    eval = minimax(depth + 1, False, max_depth, heuristic)
                     board[i][j] = " "
                     max_eval = max(max_eval, eval)
         return max_eval
@@ -54,9 +56,52 @@ def minimax(depth, is_maximizing):
             for j in range(3):
                 if board[i][j] == " ":
                     board[i][j] = PLAYER_O
-                    eval = minimax(depth + 1, True)
+                    eval = minimax(depth + 1, True, max_depth, heuristic)
                     board[i][j] = " "
                     min_eval = min(min_eval, eval)
+        return min_eval
+
+
+def minimax_with_alpha_beta(depth, is_maximizing, alpha, beta):
+    global PLAYER_O, PLAYER_X, board, called
+
+    called += 1
+    # current_board = copy.deepcopy(board)
+    # printer.submit(lambda: print_board(current_board))
+
+    winner = check_winner(board)
+    if winner == PLAYER_X:
+        return 10 - depth
+    elif winner == PLAYER_O:
+        return depth - 10
+    elif is_full(board):
+        return 0
+
+    if is_maximizing:
+        max_eval = -math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_X
+                    eval = minimax_with_alpha_beta(depth + 1, False, alpha, beta)
+                    board[i][j] = " "
+                    max_eval = max(max_eval, eval)
+                    if eval >= beta:
+                        return beta
+                    alpha = max(alpha, eval)
+        return max_eval
+    else:
+        min_eval = math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_O
+                    eval = minimax_with_alpha_beta(depth + 1, True, alpha, beta)
+                    board[i][j] = " "
+                    min_eval = min(min_eval, eval)
+                    if eval <= alpha:
+                        return alpha
+                    beta = min(beta, eval)
         return min_eval
 
 
@@ -102,18 +147,22 @@ def minimax_with_alpha_beta(depth, is_maximizing, alpha, beta):
 def ai_move():
     global board, buttons, PLAYER_X
 
+    start_time = time.time()
     best_val = -math.inf
     ai_move = (-1, -1)
     for i in range(3):
         for j in range(3):
             if board[i][j] == " ":
                 board[i][j] = PLAYER_X
-                move_val = minimax(0, False)
+                move_val = minimax_with_alpha_beta(0, False, -math.inf, math.inf)
                 board[i][j] = " "
                 if move_val > best_val:
                     best_val = move_val
                     ai_move = (i, j)
 
+    print(time.time() - start_time)
+    print(called)
+    called = 0
     board[ai_move[0]][ai_move[1]] = PLAYER_X
     buttons[ai_move[0]][ai_move[1]].config(text=PLAYER_X)
     toggle_buttons(True)
@@ -193,6 +242,7 @@ def reset_game():
 
 PLAYER_X = "X"
 PLAYER_O = "O"
+called = 0
 game_over = False
 board = [[" ", " ", " "], [" ", " ", " "], [" ", " ", " "]]
 buttons = [[" ", " ", " "], [" ", " ", " "], [" ", " ", " "]]
