@@ -25,7 +25,7 @@ def print_board(current_board):
         print()
 
 
-def minimax(depth, is_maximizing):
+def minimax(depth, is_maximizing, max_depth=math.inf, heuristic=None):
     global PLAYER_O, PLAYER_X, board, called
     called += 1
 
@@ -39,6 +39,9 @@ def minimax(depth, is_maximizing):
         return depth - 10
     elif is_full(board):
         return 0
+
+    if depth >= max_depth:
+        return heuristic()
 
     if is_maximizing:
         max_eval = -math.inf
@@ -105,47 +108,83 @@ def minimax_with_alpha_beta(depth, is_maximizing, alpha, beta):
         return min_eval
 
 
-def minimax_with_alpha_beta(depth, is_maximizing, alpha, beta):
+def check_winning_lines_heuristic():
     global PLAYER_O, PLAYER_X, board
 
-    winner = check_winner(board)
-    if winner == PLAYER_X:
-        return 10 - depth
-    elif winner == PLAYER_O:
-        return depth - 10
-    elif is_full(board):
-        return 0
+    score = 0
+    winning_lines = [
+        [(0, 0), (0, 1), (0, 2)],
+        [(1, 0), (1, 1), (1, 2)],
+        [(2, 0), (2, 1), (2, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 1), (1, 1), (2, 1)],
+        [(0, 2), (1, 2), (2, 2)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 2), (1, 1), (2, 0)],
+    ]
 
-    if is_maximizing:
-        max_eval = -math.inf
-        for i in range(3):
-            for j in range(3):
-                if board[i][j] == " ":
-                    board[i][j] = PLAYER_X
-                    eval = minimax_with_alpha_beta(depth + 1, False, alpha, beta)
-                    board[i][j] = " "
-                    max_eval = max(max_eval, eval)
-                    if eval >= beta:
-                        return beta
-                    alpha = max(alpha, eval)
-        return max_eval
-    else:
-        min_eval = math.inf
-        for i in range(3):
-            for j in range(3):
-                if board[i][j] == " ":
-                    board[i][j] = PLAYER_O
-                    eval = minimax_with_alpha_beta(depth + 1, True, alpha, beta)
-                    board[i][j] = " "
-                    min_eval = min(min_eval, eval)
-                    if eval <= alpha:
-                        return alpha
-                    beta = min(beta, eval)
-        return min_eval
+    for line in winning_lines:
+        ai_count = 0
+        opponent_count = 0
+
+        for row, col in line:
+            if board[row][col] == PLAYER_X:
+                ai_count += 1
+            elif board[row][col] == PLAYER_O:
+                opponent_count += 1
+
+        if ai_count == 3:
+            return 1000
+        elif opponent_count == 3:
+            return -1000
+        elif ai_count == 2 and opponent_count == 0:
+            score += 10
+        elif opponent_count == 2 and ai_count == 0:
+            score -= 10
+
+    return score
+
+
+def center_control_heuristic():
+    global PLAYER_O, PLAYER_X, board
+
+    center = (1, 1)
+    score = 0
+
+    if board[center[0]][center[1]] == "X":
+        score += 10
+    elif board[center[0]][center[1]] == "O":
+        score -= 10
+
+    return score
+
+
+def corners_control_heuristic():
+    global PLAYER_O, PLAYER_X, board
+
+    corners = [(0, 0), (0, 2), (2, 0), (2, 2)]
+
+    score = 0
+
+    for corner in corners:
+        if board[corner[0]][corner[1]] == PLAYER_X:
+            score += 5
+        elif board[corner[0]][corner[1]] == PLAYER_O:
+            score -= 5
+
+    return score
+
+
+def combined_heuristic():
+    return (
+        check_winning_lines_heuristic()
+        + center_control_heuristic()
+        + corners_control_heuristic()
+    )
 
 
 def ai_move():
-    global board, buttons, PLAYER_X
+    global board, buttons, PLAYER_X, called, current_game_mode
 
     start_time = time.time()
     best_val = -math.inf
@@ -154,7 +193,9 @@ def ai_move():
         for j in range(3):
             if board[i][j] == " ":
                 board[i][j] = PLAYER_X
-                move_val = minimax_with_alpha_beta(0, False, -math.inf, math.inf)
+
+                move_val = minimax(0, False, 3, combined_heuristic)
+
                 board[i][j] = " "
                 if move_val > best_val:
                     best_val = move_val
@@ -266,13 +307,6 @@ for i in range(3):
         buttons[i][j].grid(row=i + 1, column=j)
 
 reset_button = tk.Button(root, text="Reset", font=("Arial", 14), command=reset_game)
-reset_button.grid(row=0, column=0, columnspan=3)
-
-# reset_button = tk.Button(root, text="Reset", font=("Arial", 14), command=reset_game)
-# reset_button.grid(row=4, column=0)
-# reset_button = tk.Button(root, text="Reset", font=("Arial", 14), command=reset_game)
-# reset_button.grid(row=4, column=1)
-# reset_button = tk.Button(root, text="Reset", font=("Arial", 14), command=reset_game)
-# reset_button.grid(row=4, column=2)
+reset_button.grid(row=4, column=0, columnspan=3)
 
 root.mainloop()
