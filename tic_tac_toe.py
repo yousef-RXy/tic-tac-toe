@@ -5,6 +5,7 @@ import threading
 import math
 import copy
 import time
+from enum import Enum
 
 
 def print_board(current_board):
@@ -194,7 +195,14 @@ def ai_move():
             if board[i][j] == " ":
                 board[i][j] = PLAYER_X
 
-                move_val = minimax(0, False, 3, combined_heuristic)
+                if current_game_mode == GameModes.MINIMAX:
+                    move_val = minimax(0, False)
+                elif current_game_mode == GameModes.ALPHA_BETA:
+                    move_val = minimax_with_alpha_beta(0, False, -math.inf, math.inf)
+                elif current_game_mode == GameModes.HEURISTIC_1:
+                    move_val = minimax(0, False, 4, check_winning_lines_heuristic)
+                elif current_game_mode == GameModes.HEURISTIC_2:
+                    move_val = minimax(0, False, 3, combined_heuristic)
 
                 board[i][j] = " "
                 if move_val > best_val:
@@ -281,9 +289,32 @@ def reset_game():
             buttons[i][j].config(text="", state=tk.NORMAL)
 
 
+def set_game_mode(selected_mode):
+    global current_game_mode
+    current_game_mode = selected_mode
+    reset_game()
+    for button, mode in mode_buttons.items():
+        if mode == selected_mode:
+            button.config(relief=tk.SUNKEN, state=tk.DISABLED)
+        else:
+            button.config(relief=tk.RAISED, state=tk.NORMAL)
+    print(f"Game mode set to: {selected_mode}")
+
+
+class GameModes(Enum):
+    MINIMAX = 0
+    ALPHA_BETA = 1
+    HEURISTIC_1 = 2
+    HEURISTIC_2 = 3
+    ALPHA_BET4 = 4
+    ALPHA_BET5 = 5
+
+
 PLAYER_X = "X"
 PLAYER_O = "O"
+current_game_mode = GameModes.MINIMAX
 called = 0
+mode_buttons = {}
 game_over = False
 board = [[" ", " ", " "], [" ", " ", " "], [" ", " ", " "]]
 buttons = [[" ", " ", " "], [" ", " ", " "], [" ", " ", " "]]
@@ -304,9 +335,26 @@ for i in range(3):
             width=5,
             command=lambda row=i, col=j: button_click(row, col),
         )
-        buttons[i][j].grid(row=i + 1, column=j)
+        buttons[i][j].grid(row=i, column=j + 1)
 
+for game_mode in GameModes:
+    column = 0 if GameModes[game_mode.name].value < 3 else 4
+    row = (
+        GameModes[game_mode.name].value
+        if GameModes[game_mode.name].value < 3
+        else GameModes[game_mode.name].value - 3
+    )
+    mode_button = tk.Button(
+        root,
+        text=game_mode.name,
+        font=("Arial", 14),
+        command=lambda mode=game_mode: set_game_mode(mode),
+    )
+    mode_button.grid(row=row, column=column)
+    mode_buttons[mode_button] = game_mode
+
+set_game_mode(GameModes.MINIMAX)
 reset_button = tk.Button(root, text="Reset", font=("Arial", 14), command=reset_game)
-reset_button.grid(row=4, column=0, columnspan=3)
+reset_button.grid(row=4, column=0, columnspan=5)
 
 root.mainloop()
