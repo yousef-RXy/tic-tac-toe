@@ -149,12 +149,10 @@ def check_winning_lines_heuristic():
 def center_control_heuristic():
     global PLAYER_O, PLAYER_X, board
 
-    center = (1, 1)
     score = 0
-
-    if board[center[0]][center[1]] == "X":
+    if board[1][1] == PLAYER_X:
         score += 10
-    elif board[center[0]][center[1]] == "O":
+    elif board[1][1] == PLAYER_O:
         score -= 10
 
     return score
@@ -179,7 +177,7 @@ def corners_control_heuristic():
 def combined_heuristic():
     return (
         check_winning_lines_heuristic()
-        + center_control_heuristic()
+        + center_control_heuristic() * 0.3
         + corners_control_heuristic()
     )
 
