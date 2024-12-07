@@ -26,7 +26,7 @@ def print_board(current_board):
         print()
 
 
-def minimax(depth, is_maximizing, max_depth=math.inf, heuristic=None):
+def minimax(depth, is_maximizing):
     global PLAYER_O, PLAYER_X, board, called
     called += 1
 
@@ -41,16 +41,13 @@ def minimax(depth, is_maximizing, max_depth=math.inf, heuristic=None):
     elif is_full(board):
         return 0
 
-    if depth >= max_depth:
-        return heuristic()
-
     if is_maximizing:
         max_eval = -math.inf
         for i in range(3):
             for j in range(3):
                 if board[i][j] == " ":
                     board[i][j] = PLAYER_X
-                    eval = minimax(depth + 1, False, max_depth, heuristic)
+                    eval = minimax(depth + 1, False)
                     board[i][j] = " "
                     max_eval = max(max_eval, eval)
         return max_eval
@@ -60,9 +57,65 @@ def minimax(depth, is_maximizing, max_depth=math.inf, heuristic=None):
             for j in range(3):
                 if board[i][j] == " ":
                     board[i][j] = PLAYER_O
-                    eval = minimax(depth + 1, True, max_depth, heuristic)
+                    eval = minimax(depth + 1, True)
                     board[i][j] = " "
                     min_eval = min(min_eval, eval)
+        return min_eval
+
+
+def minimax_with_heretic(
+    depth, is_maximizing, heuristic, reduction, max_depth=math.inf, all_boards=None
+):
+    global PLAYER_O, PLAYER_X, board, called
+    called += 1
+
+    # current_board = copy.deepcopy(board)
+    # printer.submit(lambda: print_board(current_board))
+
+    winner = check_winner(board)
+    if winner == PLAYER_X:
+        return 10 - depth
+    elif winner == PLAYER_O:
+        return depth - 10
+    elif is_full(board):
+        return 0
+
+    if reduction == Reduction.HEURISTIC_REDUCTION:
+        if depth >= max_depth:
+            return heuristic()
+    elif reduction == Reduction.SYMMETRY_REDUCTION:
+        symmetries = [tuple(map(tuple, sym)) for sym in generate_symmetries()]
+        main_board = min(symmetries)
+        if main_board in all_boards:
+            return all_boards[main_board]
+
+    if is_maximizing:
+        max_eval = -math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_X
+                    eval = minimax_with_heretic(
+                        depth + 1, False, heuristic, reduction, max_depth, all_boards
+                    )
+                    board[i][j] = " "
+                    max_eval = max(max_eval, eval)
+                    if reduction == Reduction.SYMMETRY_REDUCTION:
+                        all_boards[main_board] = max_eval
+        return max_eval
+    else:
+        min_eval = math.inf
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == " ":
+                    board[i][j] = PLAYER_O
+                    eval = minimax_with_heretic(
+                        depth + 1, True, heuristic, reduction, max_depth, all_boards
+                    )
+                    board[i][j] = " "
+                    min_eval = min(min_eval, eval)
+                    if reduction == Reduction.SYMMETRY_REDUCTION:
+                        all_boards[main_board] = min_eval
         return min_eval
 
 
@@ -182,6 +235,34 @@ def combined_heuristic():
     )
 
 
+def generate_symmetries():
+    global board
+    symmetries = []
+    symmetries.append(board)
+    curr_board = rotate_90(board)
+    symmetries.append(curr_board)
+
+    for i in range(2):
+        curr_board = rotate_90(curr_board)
+        symmetries.append(curr_board)
+        symmetries.append(reflect_horizontal(curr_board))
+        symmetries.append(reflect_vertical(curr_board))
+
+    return symmetries
+
+
+def rotate_90(board):
+    return [[board[2 - j][i] for j in range(3)] for i in range(3)]
+
+
+def reflect_horizontal(board):
+    return [row[::-1] for row in board]
+
+
+def reflect_vertical(board):
+    return board[::-1]
+
+
 def ai_move():
     global board, buttons, PLAYER_X, called, current_game_mode
 
@@ -197,10 +278,38 @@ def ai_move():
                     move_val = minimax(0, False)
                 elif current_game_mode == GameModes.ALPHA_BETA:
                     move_val = minimax_with_alpha_beta(0, False, -math.inf, math.inf)
-                elif current_game_mode == GameModes.HEURISTIC_1:
-                    move_val = minimax(0, False, 4, check_winning_lines_heuristic)
-                elif current_game_mode == GameModes.HEURISTIC_2:
-                    move_val = minimax(0, False, 3, combined_heuristic)
+                elif current_game_mode == GameModes.HEURISTIC_1_SYMMETRY_REDUCTION:
+                    move_val = minimax_with_heretic(
+                        0,
+                        False,
+                        check_winning_lines_heuristic,
+                        Reduction.SYMMETRY_REDUCTION,
+                        all_boards={},
+                    )
+                elif current_game_mode == GameModes.HEURISTIC_2_SYMMETRY_REDUCTION:
+                    move_val = minimax_with_heretic(
+                        0,
+                        False,
+                        combined_heuristic,
+                        Reduction.SYMMETRY_REDUCTION,
+                        all_boards={},
+                    )
+                elif current_game_mode == GameModes.HEURISTIC_1_HEURISTIC_REDUCTION:
+                    move_val = minimax_with_heretic(
+                        0,
+                        False,
+                        check_winning_lines_heuristic,
+                        Reduction.HEURISTIC_REDUCTION,
+                        max_depth=4,
+                    )
+                elif current_game_mode == GameModes.HEURISTIC_2_HEURISTIC_REDUCTION:
+                    move_val = minimax_with_heretic(
+                        0,
+                        False,
+                        combined_heuristic,
+                        Reduction.HEURISTIC_REDUCTION,
+                        max_depth=3,
+                    )
 
                 board[i][j] = " "
                 if move_val > best_val:
@@ -302,10 +411,15 @@ def set_game_mode(selected_mode):
 class GameModes(Enum):
     MINIMAX = 0
     ALPHA_BETA = 1
-    HEURISTIC_1 = 2
-    HEURISTIC_2 = 3
-    ALPHA_BET4 = 4
-    ALPHA_BET5 = 5
+    HEURISTIC_1_SYMMETRY_REDUCTION = 2
+    HEURISTIC_2_SYMMETRY_REDUCTION = 3
+    HEURISTIC_1_HEURISTIC_REDUCTION = 4
+    HEURISTIC_2_HEURISTIC_REDUCTION = 5
+
+
+class Reduction(Enum):
+    SYMMETRY_REDUCTION = 0
+    HEURISTIC_REDUCTION = 1
 
 
 PLAYER_X = "X"
@@ -342,9 +456,17 @@ for game_mode in GameModes:
         if GameModes[game_mode.name].value < 3
         else GameModes[game_mode.name].value - 3
     )
+    button_text = " ".join(game_mode.name.split("_"))
+    if len(button_text) > len(" ".join(GameModes.ALPHA_BETA.name.split("_"))):
+        words = button_text.split(" ")
+        midpoint = int(len(words) / 2)
+        button_text = "\n".join(
+            [" ".join(words[:midpoint]), " ".join(words[midpoint:])]
+        )
+
     mode_button = tk.Button(
         root,
-        text=game_mode.name,
+        text=button_text,
         font=("Arial", 14),
         command=lambda mode=game_mode: set_game_mode(mode),
     )
