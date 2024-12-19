@@ -343,7 +343,7 @@ def ai_move():
                         False,
                         combined_heuristic,
                         Reduction.HEURISTIC_REDUCTION,
-                        max_depth=3,
+                        max_depth=2,
                     )
                 elif current_game_mode == GameModes.MINIMAX_SYMMETRY_REDUCTION:
                     move_val = minimax(
